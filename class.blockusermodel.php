@@ -29,4 +29,22 @@ class BlockUserModel extends VanillaModel {
         $this->blockedUserIDs = explode(',', $blockedUserIDs['BlockUser']);
         */
     }
+
+    public function getByBlockedUserName($blockedUserName, $blockingUserID = 0) {
+        if ($blockingUserID == 0) {
+            $blockingUserID = Gdn::session()->UserID;
+        }
+        $sql = Gdn::sql()
+            ->select('u.Name, bu.*')
+            ->from('User u')
+            ->join(
+                'BlockUser bu',
+                'u.UserID = bu.BlockedUserID',
+                'left outer'
+            )
+            ->where(['bu.BlockingUserID' => Gdn::session()->UserID])
+            ->where(['u.Name' => $blockedUserName]);
+
+        return $sql->get()->firstRow();
+    }
 }

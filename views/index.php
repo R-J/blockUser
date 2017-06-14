@@ -5,15 +5,37 @@
     <h1 class="H"><?= $this->title() ?></h1>
     <div class="Info"><?= t('If you feel harassed by some user, you can minify his/her visibility to you') ?></div>
     <?= $this->Form->open(), $this->Form->errors() ?>
-    <div class="Aside">
+
+<?php
+decho($this->data('BlockedUsers'));
+?>
+    <table>
+        <thead>
+            <tr>
+                <th><?= t('User Name') ?></th>
+                <th>&nbsp;</th>
+                <th>&nbsp;</th>
+                <th>&nbsp;</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+        <?php foreach($this->data('BlockedUsers') as $blockedUser): ?>
+            <tr>
+                <td></td>
+                <td></td>
+                <td></td>
+            </tr>
+        <?php endforeach ?>
+        </tbody>
+    </table>
     <ul class="AddBlockUser">
         <li class="AddBlockUserLabel"><?= $this->Form->label('Add a new user to the list', 'User') ?></li>
         <li class="AddBlockUserTokenInput"><?= $this->Form->textBox('User', ['class' => 'MultiComplete']) ?></li>
         <li class="AddBlockUserButton">
-            <?= anchor('Add', '/plugin/blockuser/add', ['class' => 'Button Popup']) ?>
+            <?= anchor('Add', '/profile/blockuser/add', ['class' => 'Button Popup']) ?>
         </li>
     </ul>
-    </div>
 
     <?= $this->Form->close() ?>
 </div>
@@ -40,7 +62,8 @@ jQuery(document).ready(function($) {
         }
 
         $author.tokenInput(gdn.url( "/user/tagsearch" ), {
-            hintText: gdn.definition( "TagHint", "Start to type..." ),
+            // hintText: gdn.definition( "TagHint", "Start to type..." ),
+            hintText: "",
             tokenValue: "name",
             searchingText: "", // search text gives flickery ux, don't like
             searchDelay: 300,
@@ -54,7 +77,7 @@ jQuery(document).ready(function($) {
                 $( userAddLink ).attr(
                     "href",
                     encodeURI(
-                        gdn.url( "/plugin/blockuser/add/" ) +
+                        gdn.url( "/profile/blockuser/add/" ) +
                         item.name +
                         "/" +
                         gdn.definition( "TransientKey" )
