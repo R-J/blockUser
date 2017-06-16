@@ -47,4 +47,42 @@ class BlockUserModel extends VanillaModel {
 
         return $sql->get()->firstRow();
     }
+
+    /**
+     * Get either one or all blocked user information.
+     *
+     * @param  [type] $blockingUserID [description]
+     * @param  [type] $blockedUserID  [description]
+     * @return dataset
+     */
+    public function getByBlockingUserID($blockingUserID, $blockedUserID = null) {
+        $sql = Gdn::sql()
+            ->select('u.Name, u.UserID, u.Banned, u.Title, u.Photo, bu.*')
+            ->from('User u')
+            ->join(
+                'BlockUser bu',
+                'u.UserID = bu.BlockedUserID',
+                'left outer'
+            )
+            ->where(['bu.BlockingUserID' => $blockingUserID]);
+        if ($blockedUserID) {
+            $sql->where(['bu.BlockedUserID' => $blockedUserID]);
+        }
+        return $sql->get();
+    }
+
+    public function getUserIDByName($userName) {
+        $user = Gdn::userModel()->getUserFromCache($userName, 'name');
+        if ($user) {
+            return $blockedUser['UserID'];
+        }
+
+        return Gdn::sql()
+            ->select('UserID')
+            ->from('User')
+            ->where(['Name' => $userName])
+            ->get()
+            ->firstRow()
+            ->UserID;
+    }
 }

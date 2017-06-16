@@ -1,30 +1,61 @@
-<?php defined('APPLICATION') or die ?>
+<?php defined('APPLICATION') or die;
+
+$blockedUsers = $this->data('BlockedUsers');
+$baseUrl = $this->data('BaseUrl');
+$tk = $this->data('TransientKey');
+?>
+
 <style>
+    .DataTable {
+        table-layout: auto;
+    }
 </style>
 <div class="FormTitleWrapper">
     <h1 class="H"><?= $this->title() ?></h1>
     <div class="Info"><?= t('If you feel harassed by some user, you can minify his/her visibility to you') ?></div>
     <?= $this->Form->open(), $this->Form->errors() ?>
-
-<?php
-decho($this->data('BlockedUsers'));
-?>
-    <table>
+    <table class="DataTable">
         <thead>
             <tr>
                 <th><?= t('User Name') ?></th>
-                <th>&nbsp;</th>
-                <th>&nbsp;</th>
-                <th>&nbsp;</th>
-                <th></th>
+                <th><?= t('Actions') ?></th>
+                <th><?= t('Comment') ?></th>
             </tr>
         </thead>
         <tbody>
-        <?php foreach($this->data('BlockedUsers') as $blockedUser): ?>
+        <?php foreach($blockedUsers as $blockedUser): ?>
             <tr>
-                <td></td>
-                <td></td>
-                <td></td>
+                <td>
+                    <ul>
+                        <li><?= userPhoto($blockedUser) ?></li>
+                        <li><?= userAnchor($blockedUser) ?></li>
+                    </ul>
+                </td>
+                <td>
+                    <ul>
+                        <li>
+                        <?php
+                            echo anchor(
+                                t('Edit'),
+                                $baseUrl.'edit/'.$blockedUser->Name.'/'.$tk,
+                                ['class' => 'Button Popup']
+                            );
+                        ?>
+                        </li>
+                        <li>
+                        <?php
+                            echo anchor(
+                                t('Remove'),
+                                $baseUrl.'delete/'.$blockedUser->Name.'/'.$tk,
+                                ['class' => 'Button Popup PopConfirm Hijack']
+                            );
+                        ?>
+                        </li>
+                    </ul>
+                </td>
+                <td>
+                    <div class="P"><?= Gdn_Format::text($blockedUser->Comment) ?></div>
+                </td>
             </tr>
         <?php endforeach ?>
         </tbody>
@@ -33,7 +64,7 @@ decho($this->data('BlockedUsers'));
         <li class="AddBlockUserLabel"><?= $this->Form->label('Add a new user to the list', 'User') ?></li>
         <li class="AddBlockUserTokenInput"><?= $this->Form->textBox('User', ['class' => 'MultiComplete']) ?></li>
         <li class="AddBlockUserButton">
-            <?= anchor('Add', '/profile/blockuser/add', ['class' => 'Button Popup']) ?>
+            <?= anchor('Add', $baseUrl.'add', ['class' => 'Button Popup']) ?>
         </li>
     </ul>
 
@@ -77,7 +108,7 @@ jQuery(document).ready(function($) {
                 $( userAddLink ).attr(
                     "href",
                     encodeURI(
-                        gdn.url( "/profile/blockuser/add/" ) +
+                        gdn.url( "<?= $baseUrl ?>add/" ) +
                         item.name +
                         "/" +
                         gdn.definition( "TransientKey" )
@@ -85,7 +116,7 @@ jQuery(document).ready(function($) {
                 );
             },
             onDelete: function (item) {
-                $( userAddLink ).attr("href", gdn.url( "/plugin/blockuser/add" ));
+                $( userAddLink ).attr("href", gdn.url( "<?= $baseUrl ?>add" ));
             }
         });
     };

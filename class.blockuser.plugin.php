@@ -24,6 +24,10 @@ class BlockUserPlugin extends Gdn_Plugin {
     /** @var array Blocked Users IDs */
     protected static $blockedUserIDs = [];
 
+    protected $blockingUserID;
+
+    protected $blockedUser;
+
     public $blockUserModel;
 
     /**
@@ -45,7 +49,8 @@ class BlockUserPlugin extends Gdn_Plugin {
 
     public function structure() {
         Gdn::structure()->table('BlockUser')
-            ->column('BlockingUserID', 'int(11)', false)
+            ->primaryKey('BlockUserID')
+            ->column('BlockingUserID', 'int(11)', false, 'index')
             ->column('BlockedUserID', 'int(11)', false)
             ->column('BlockPrivateMessages', 'tinyint(1)', 1)
             ->column('BlockNotifications', 'tinyint(1)', 1)
@@ -53,7 +58,7 @@ class BlockUserPlugin extends Gdn_Plugin {
             ->column('BlockComments', 'tinyint(1)', 1)
             ->column('BlockActivities', 'tinyint(1)', 1)
             ->column('DisallowProfileVisits', 'tinyint(1)', 1)
-            ->column('Comment', 'text', '')
+            ->column('Comment', 'text', true)
             ->set();
     }
 
@@ -121,7 +126,9 @@ class BlockUserPlugin extends Gdn_Plugin {
     public function profileController_blockUser_create($sender) {
         $sender->permission('Garden.SignIn.Allow');
 
-        $sender->getUserInfo('', '', Gdn::session()->UserID, false);
+        $this->blockingUserID = Gdn::session()->UserID;
+
+        $sender->getUserInfo('', '', $this->blockingUserID, false);
         $sender->editMode(true);
 
         // Set the breadcrumbs.
@@ -137,23 +144,35 @@ class BlockUserPlugin extends Gdn_Plugin {
         $sender->Form = new Gdn_Form();
         $sender->Form->setModel($this->blockUserModel);
 
+        $sender->setData('BaseUrl', '/profile/blockuser/');
+        $sender->setData('TransientKey', Gdn::session()->transientKey());
+
         if (count($sender->RequestArgs) != 3) {
             $this->controller_index($sender);
             return;
         }
 
-        switch ($sender->RequestArgs[0]) {
+        list($action, $blockedUserName, $transientKey) = $sender->RequestArgs;
+        // Check if request is valid.
+        if (!Gdn::session()->validateTransientKey($transientKey)) {
+            throw permissionException();
+        }
+        // Get info about the user.
+        $this->blockedUser = Gdn::userModel()->getByUsername($blockedUserName);
+
+
+        switch ($action) {
             case 'add':
-                $this->controller_add($sender, $sender->RequestArgs);
+                $this->controller_add($sender);
                 break;
             case 'edit':
-                $this->controller_edit($sender, $sender->RequestArgs);
+                $this->controller_edit($sender);
                 break;
             case 'delete':
-                $this->controller_delete($sender, $sender->RequestArgs);
+                $this->controller_delete($sender);
                 break;
             default:
-                throw notFoundException();
+                $this->controller_index($sender);
         }
     }
 
@@ -167,9 +186,7 @@ class BlockUserPlugin extends Gdn_Plugin {
 
         $sender->setData(
             'BlockedUsers',
-            $this->blockUserModel->getWhere(
-                ['BlockingUserID' => Gdn::session()->UserID]
-            )
+            $this->blockUserModel->getByBlockingUserID($this->blockingUserID)
         );
         $sender->render('index', '', 'plugins/blockUser');
     }
@@ -180,8 +197,15 @@ class BlockUserPlugin extends Gdn_Plugin {
      * @param  [type] $args   [description]
      * @return [type]         [description]
      */
-    public function controller_add($sender, $args) {
-        $this->controller_edit($sender, $args);
+    public function controller_add($sender) {
+        $sender->setData(
+            'Title',
+            sprintf(
+                t('Block "%s"'),
+                $this->blockedUser->Name
+            )
+        );
+        $this->controller_edit($sender);
     }
 
     /**
@@ -191,43 +215,49 @@ class BlockUserPlugin extends Gdn_Plugin {
      * @return [type]         [description]
      */
     public function controller_edit($sender, $args) {
-        list($action, $userName, $transientKey) = $args;
-        // Check authorization.
-        if (!Gdn::session()->validateTransientKey($transientKey)) {
-            throw permissionException();
+        if (!$sender->title()) {
+            $sender->setData(
+                'Title',
+                sprintf(
+                    t('Edit Blocked User "%s"'),
+                    $this->blockedUser->Name
+                )
+            );
         }
-
-        $userID = Gdn::session()->UserID;
-
-        $sender->Form->setData(
-            $this->blockUserModel->getByBlockedUserName(
-                $userName,
-                $userID
-            )
-        );
-
-decho($blockedUserInfo);
-        if (strtolower($action) == 'edit') {
-            $title = 'Edit Blocked User "%s"';
-        } else {
-            $title = 'Block "%s"';
+        $sender->setData('BlockedUser', $this->blockedUser);
+        // Set data from database, if available.
+        $data = $this->blockUserModel->getByBlockingUserID(
+            $this->blockingUserID,
+            $this->blockedUser->UserID
+        )->firstRow();
+        if($data) {
+            $sender->Form->setData($data);
+            // Set PrimaryKey if available, in order to make editing possible.
+            $sender->Form->addHidden('BlockUserID', $data->BlockUserID, true);
         }
-        $sender->setData('Title', sprintf($title, $userName));
+        $sender->Form->addHidden('BlockingUserID', $this->blockingUserID, true);
+        $sender->Form->addHidden('BlockedUserID', $this->blockedUser->UserID, true);
 
-        // Set the breadcrumbs.
-        $sender->setData(
-            'Breadcrumbs',
-            [
-                ['Name' => t('Profile'), 'Url' => '/profile'],
-                ['Name' => t('Block Users'), 'Url' => '/profile/blockuser']
-            ]
-        );
         // Form submission handling.
         if ($sender->Form->authenticatedPostBack()) {
-decho($sender->Form->formValues());
-            $sender->informMessage(t("Your changes have been saved."));
+            if($sender->Form->save() !== false) {
+// TODOs:
+// check if all fields have been cleared => delete record;
+// redirect to page
+                $sender->informMessage(t("Your changes have been saved."));
+                // redirect('/profile/blockuser');
+            }
         }
 
         $sender->render('edit', '', 'plugins/blockUser');
+    }
+
+    public function controller_delete($sender, $args) {
+        $this->blockUserModel->delete(
+            [
+                'BlockingUserID' => $this->blockingUserID,
+                'BlockedUserID' => $this->blockedUser->UserID
+            ]
+        );
     }
 }
