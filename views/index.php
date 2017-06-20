@@ -37,7 +37,7 @@ $tk = $this->data('TransientKey');
                         <?php
                             echo anchor(
                                 t('Edit'),
-                                $baseUrl.'edit/'.$blockedUser->Name.'/'.$tk,
+                                $baseUrl.'edit/'.$blockedUser['Name'].'/'.$tk,
                                 ['class' => 'Button Popup']
                             );
                         ?>
@@ -46,15 +46,15 @@ $tk = $this->data('TransientKey');
                         <?php
                             echo anchor(
                                 t('Remove'),
-                                $baseUrl.'delete/'.$blockedUser->Name.'/'.$tk,
-                                ['class' => 'Button Popup PopConfirm Hijack']
+                                $baseUrl.'delete/'.$blockedUser['Name'].'/'.$tk,
+                                ['class' => 'Button Popup PopConfirm']
                             );
                         ?>
                         </li>
                     </ul>
                 </td>
                 <td>
-                    <div class="P"><?= Gdn_Format::text($blockedUser->Comment) ?></div>
+                    <div class="P"><?= Gdn_Format::text($blockedUser['Comment']) ?></div>
                 </td>
             </tr>
         <?php endforeach ?>

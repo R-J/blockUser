@@ -15,28 +15,31 @@ $PluginInfo['blockUser'] = [
     'License' => 'MIT'
 ];
 
-// include __DIR__.'/class.blockuserprofilecontroller.php';
+include __DIR__.'/controllers/class.blockuserprofilecontroller.php';
+include __DIR__.'/controllers/class.blockuserplugincontroller.php';
 /**
  * Make 'blockUser.UseDropDownButton' option in settings and tell users that
  * having a prominent blocking option might look hostile...
  */
 class BlockUserPlugin extends Gdn_Plugin {
+    public $blockedUserInfo;
 
-    /** @var array Blocked Users IDs */
-    protected static $blockedUserIDs = [];
+    public $blockedUserIDs;
 
-    protected static $blockUserProfileController;
-
-    protected $blockingUserID;
-
-    protected $blockedUser;
-
-    public $blockUserModel;
-
+    /**
+     * Init db changes. Set sane config values if needed.
+     *
+     * @return void.
+     */
     public function setup() {
         $this->structure();
     }
 
+    /**
+     * Add table for blocking information to db.
+     *
+     * @return void.
+     */
     public function structure() {
         Gdn::structure()->table('BlockUser')
             ->primaryKey('BlockUserID')
@@ -52,64 +55,25 @@ class BlockUserPlugin extends Gdn_Plugin {
             ->set();
     }
 
-    public function profileController_afterAddSideMenu_handler($sender, $args) {
-        (new BlockUserProfileController())->addEditMenuEntry($sender);
+    public function assetModel_styleCss_handler($sender) {
+        $sender->addCssFile('blockuser.css', 'plugins/blockUser');
     }
 
-   /**
-     * Add button to profile.
-     *
-     * @param ProfileController $sender Instance of the calling object.
-     *
-     * @return void.
-     */
-   public function profileController_beforeProfileOptions_handler($sender) {
-        (new BlockUserProfileController())->addBlockUserButton($sender);
-    }
-
-    /**
-     *
-     * @param PluginController $sender Instance of the calling class.
-     *
-     * @return bool|string False on failure "blocked"|"unblocked" on success.
-     */
-    public function profileController_blockUser_create($sender) {
-        (new BlockUserProfileController())->simpleDispatch($sender);
-    }
-
-    public function pluginController_blockUser_create($sender) {
-        $sender->permission('Garden.SignIn.Allow');
-
-        $this->blockUserModel = new BlockUserModel();
-        $sender->Form = new Gdn_Form();
-        $sender->Form->setModel($this->blockUserModel);
-
-        if (count($sender->RequestArgs) != 2) {
-            return false;
+    public function base_BeforeDiscussionName_handler($sender, $args) {
+        if (!$this->blockedUserIDs) {
+            $this->blockUserModel = new BlockUserModel();
+            $this->blockedUserInfo = $this->blockUserModel->getByBlockingUserID(Gdn::session()->UserID);
+            $this->blockedUserIDs = array_column($this->blockedUserInfo, 'BlockedUserID');
         }
 
-        list($action, $targetUserName, $transientKey) = $sender->RequestArgs;
-        // Check if request is valid.
-        if (!Gdn::session()->validateTransientKey($transientKey)) {
-            throw permissionException();
+        $index = array_search(
+            $args['Discussion']->InsertUserID,
+            $this->blockedUserIDs
+        );
+
+        if (!$index || !$this->blockedUserInfo[$index]['BlockDiscussions']) {
+            return;
         }
-        // Get info about the user.
-        $this->blockedUser = Gdn::userModel()->getByUsername($blockedUserName);
-
-
-        switch ($action) {
-            case 'add':
-                $this->controller_add($sender);
-                break;
-            case 'edit':
-                $this->controller_edit($sender);
-                break;
-            case 'delete':
-                $this->controller_delete($sender);
-                break;
-            default:
-                $this->controller_index($sender);
-        }
-
+        $args['CssClass'] .= ' Ignored';
     }
 }
