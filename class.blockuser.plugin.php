@@ -76,4 +76,23 @@ class BlockUserPlugin extends Gdn_Plugin {
         }
         $args['CssClass'] .= ' Ignored';
     }
+
+    public function base_beforeCommentDisplay_handler($sender, $args) {
+        if (!$this->blockedUserIDs) {
+            $this->blockUserModel = new BlockUserModel();
+            $this->blockedUserInfo = $this->blockUserModel->getByBlockingUserID(Gdn::session()->UserID);
+            $this->blockedUserIDs = array_column($this->blockedUserInfo, 'BlockedUserID');
+        }
+
+        $index = array_search(
+            $args['Comment']->InsertUserID,
+            $this->blockedUserIDs
+        );
+
+        if (!$index || !$this->blockedUserInfo[$index]['BlockComments']) {
+            return;
+        }
+        $args['CssClass'] .= ' Ignored';
+
+    }
 }

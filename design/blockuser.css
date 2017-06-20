@@ -1,3 +1,10 @@
-.ItemDiscussion.Ignored {
-    opacity: 0.5;
+.Item.Ignored,
+.Item.Read.Ignored:hover
+{
+    opacity: 0.3;
+    display: none;
+}
+
+.Item .Item-BodyWrap {
+    display: none;
 }
