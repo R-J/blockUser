@@ -2,9 +2,10 @@
 .Item.Read.Ignored:hover
 {
     opacity: 0.3;
-    display: none;
 }
 
+.Item.Activity.Ignored,
 .Item .Item-BodyWrap {
     display: none;
 }
+

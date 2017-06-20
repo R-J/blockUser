@@ -93,6 +93,23 @@ class BlockUserPlugin extends Gdn_Plugin {
             return;
         }
         $args['CssClass'] .= ' Ignored';
+    }
 
+    public function base_beforeActivity_handler($sender, $args) {
+        if (!$this->blockedUserIDs) {
+            $this->blockUserModel = new BlockUserModel();
+            $this->blockedUserInfo = $this->blockUserModel->getByBlockingUserID(Gdn::session()->UserID);
+            $this->blockedUserIDs = array_column($this->blockedUserInfo, 'BlockedUserID');
+        }
+
+        $index = array_search(
+            $args['Activity']->InsertUserID,
+            $this->blockedUserIDs
+        );
+
+        if (!$index || !$this->blockedUserInfo[$index]['BlockActivities']) {
+            return;
+        }
+        $args['CssClass'] .= ' Ignored';
     }
 }
