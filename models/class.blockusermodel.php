@@ -13,6 +13,8 @@ class BlockUserModel extends VanillaModel {
      * @return array The blocked users ids.
      */
     public function getBlockedUsers($userID = 0) {
+// unused
+die;
         if (!$userID) {
             $userID = Gdn::session()->UserID;
         }
@@ -46,7 +48,7 @@ class BlockUserModel extends VanillaModel {
      * @param  [type] $blockedUserID  [description]
      * @return dataset
      */
-    public function getByBlockingUserID($blockingUserID, $blockedUserID = 0) {
+    public function getBlocked($blockingUserID, $blockedUserID = 0) {
         // Get info from cache if available.
         $blockedUserInfo = Gdn::cache()->get('BlockUserInfo.'.$blockingUserID);
         if ($blockedUserInfo === Gdn_Cache::CACHEOP_FAILURE) {
@@ -103,9 +105,11 @@ class BlockUserModel extends VanillaModel {
     }
 
     public function isBlocking($blockingUserID, $blockedUserID, $blockedActions = [], $fullMatch = true) {
-        $blockedUserInfo = $this->getByBlockingUserID($blockingUserID, $blockedUserID);
+        $blockedUserInfo = $this->getBlocked($blockingUserID, $blockedUserID);
+        if (!$blockedUserInfo) {
+            return false;
+        }
 
-decho($blockedUserInfo);
         $validateActions = array_intersect_key(
             $blockedUserInfo,
             array_flip($blockedActions)
@@ -119,5 +123,25 @@ decho($blockedUserInfo);
             $result = $result && $action;
         }
         return $result;
+    }
+
+    /**
+     * [isBlocked description]
+     * @param  [type]  $blockedUserID [description]
+     *
+     * @return array UserIDs of users blocking the input user id.
+     */
+    public function getBlocking($blockedUserID) {
+        return Gdn::sql()
+            ->select('u.Name, bu.*')
+            ->from('User u')
+            ->join(
+                'BlockUser bu',
+                'u.UserID = bu.BlockingUserID',
+                'left outer'
+            )
+            ->where(['bu.BlockedUserID' => $blockedUserID])
+            ->get()
+            ->resultArray();
     }
 }

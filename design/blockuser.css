@@ -5,7 +5,7 @@
 }
 
 .Item.Activity.Ignored,
-.Item .Item-BodyWrap {
+.Ignored > .Item .Item-BodyWrap {
     display: none;
 }
 

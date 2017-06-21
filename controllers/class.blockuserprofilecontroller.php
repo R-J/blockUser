@@ -88,7 +88,7 @@ class BlockUserProfileController extends Gdn_Plugin {
         $sender->setData('Title', t('Block Users'));
         $sender->setData(
             'BlockedUsers',
-            $this->blockUserModel->getByBlockingUserID($this->blockingUserID)
+            $this->blockUserModel->getBlocked($this->blockingUserID)
         );
         $sender->render('index', '', 'plugins/blockUser');
     }
@@ -128,7 +128,7 @@ class BlockUserProfileController extends Gdn_Plugin {
         }
         $sender->setData('BlockedUser', $this->blockedUser);
         // Set data from database, if available.
-        $data = $this->blockUserModel->getByBlockingUserID(
+        $data = $this->blockUserModel->getBlocked(
             $this->blockingUserID,
             $this->blockedUser->UserID
         );
@@ -183,6 +183,7 @@ class BlockUserProfileController extends Gdn_Plugin {
         if ($profileUserID == $sessionUserID || $sessionUserID < 1) {
             return;
         }
+
         if ((new BlockUserModel())->isBlocking($sessionUserID, $profileUserID)) {
             $action = 'unblock';
         } else {
