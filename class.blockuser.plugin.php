@@ -18,6 +18,15 @@ $PluginInfo['blockUser'] = [
 include __DIR__.'/controllers/class.blockuserprofilecontroller.php';
 include __DIR__.'/controllers/class.blockuserplugincontroller.php';
 /**
+ * todo:
+ * UI: wrong avatar in index
+ * UI: PopConfirm in /delete doesn't pause
+ * UX: (Live-) reload
+ * UX: remove "empty" records (nothing to ignore, no comment)
+ * Bug: workaround for AddPeopleModule... (JS? Or module override?)
+ * Feature: implement settings: ForceAnnouncements (CSS only!)
+ * Feature: implement settings: ForceStaffMessages
+ * 
  * Make 'blockUser.UseDropDownButton' option in settings and tell users that
  * having a prominent blocking option might look hostile...
  */
@@ -54,7 +63,7 @@ class BlockUserPlugin extends Gdn_Plugin {
             ->column('BlockDiscussions', 'tinyint(1)', 1)
             ->column('BlockComments', 'tinyint(1)', 1)
             ->column('BlockActivities', 'tinyint(1)', 1)
-            ->column('DisallowProfileVisits', 'tinyint(1)', 1)
+            ->column('DisallowWallPosts', 'tinyint(1)', 1)
             ->column('Comment', 'text', true)
             ->set();
     }
