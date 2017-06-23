@@ -1,11 +1,4 @@
 <?php defined('APPLICATION') or die ?>
-<style>
-    .BlockUserEdit {
-        text-align:center;
-        position:relative;
-        top:50%;
-    }
-</style>
 <div class="FormTitleWrapper">
     <h1 class="H"><?= htmlEsc($this->title()) ?></h1>
     <?= $this->Form->open(), $this->Form->errors() ?>
@@ -16,13 +9,9 @@
             <tr>
                 <td><?= t('Block Private Messages') ?></td>
                 <td><?= $this->Form->checkBox('BlockPrivateMessages') ?></td>
-                <td rowspan="6">
-                    <div class="BlockUserEdit">
-                        <ul>
-                            <li><?= userPhoto($this->data('BlockedUser', ['Size' => 'Large'])) ?></li>
-                            <li><?= userAnchor($this->data('BlockedUser')) ?></li>
-                        </ul>
-                    </div>
+                <td rowspan="6" class="BlockUserEdit">
+                    <?= userPhoto($this->data('BlockedUser')) ?>
+                    <?= userAnchor($this->data('BlockedUser')) ?>
                 </td>
             </tr>
             <tr>
@@ -42,8 +31,8 @@
                 <td><?= $this->Form->checkBox('BlockActivities') ?></td>
             </tr>
             <tr>
-                <td><?= t('Disallow Profile Visits') ?></td>
-                <td><?= $this->Form->checkBox('DisallowProfileVisits') ?></td>
+                <td><?= t('Disallow writing on my wall') ?></td>
+                <td><?= $this->Form->checkBox('DisallowWallPosts') ?></td>
             </tr>
         </tbody>
     </table>

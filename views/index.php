@@ -10,14 +10,14 @@ $tk = $this->data('TransientKey');
         table-layout: auto;
     }
 </style>
-<div class="FormTitleWrapper">
+<div class="FormTitleWrapper BlockUserPreferences">
     <h1 class="H"><?= $this->title() ?></h1>
     <div class="Info"><?= t('If you feel harassed by some user, you can minify his/her visibility to you') ?></div>
     <?= $this->Form->open(), $this->Form->errors() ?>
-    <table class="DataTable">
+    <table class="DataTable BlockUserTable">
         <thead>
             <tr>
-                <th><?= t('User Name') ?></th>
+                <th colspan="2"><?= t('User') ?></th>
                 <th><?= t('Actions') ?></th>
                 <th><?= t('Comment') ?></th>
             </tr>
@@ -25,35 +25,23 @@ $tk = $this->data('TransientKey');
         <tbody>
         <?php foreach($blockedUsers as $blockedUser): ?>
             <tr>
-                <td>
-                    <ul>
-                        <li><?= userPhoto($blockedUser) ?></li>
-                        <li><?= userAnchor($blockedUser) ?></li>
-                    </ul>
+                <td class="BlockUserPhoto"><?= userPhoto($blockedUser) ?></td>
+                <td class="BlockUserName"><?= userAnchor($blockedUser) ?></td>
+                <td class="BlockUserActions">
+                <?php
+                    echo anchor(
+                        t('Edit'),
+                        $baseUrl.'edit/'.$blockedUser['Name'].'/'.$tk,
+                        ['class' => 'Button Popup']
+                    );
+                    echo anchor(
+                        t('Remove'),
+                        $baseUrl.'delete/'.$blockedUser['Name'].'/'.$tk,
+                        ['class' => 'Button PopConfirm']
+                    );
+                ?>
                 </td>
-                <td>
-                    <ul>
-                        <li>
-                        <?php
-                            echo anchor(
-                                t('Edit'),
-                                $baseUrl.'edit/'.$blockedUser['Name'].'/'.$tk,
-                                ['class' => 'Button Popup']
-                            );
-                        ?>
-                        </li>
-                        <li>
-                        <?php
-                            echo anchor(
-                                t('Remove'),
-                                $baseUrl.'delete/'.$blockedUser['Name'].'/'.$tk,
-                                ['class' => 'Button Popup PopConfirm']
-                            );
-                        ?>
-                        </li>
-                    </ul>
-                </td>
-                <td>
+                <td class="BlockUserComment">
                     <div class="P"><?= Gdn_Format::text($blockedUser['Comment']) ?></div>
                 </td>
             </tr>
