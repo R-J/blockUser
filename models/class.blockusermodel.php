@@ -54,7 +54,7 @@ die;
         if ($blockedUserInfo === Gdn_Cache::CACHEOP_FAILURE) {
             // Get info from db.
             $blockedUserInfo = Gdn::sql()
-                ->select('u.Name, u.UserID, u.Banned, u.Title, u.Photo, bu.*')
+                ->select('u.Name, u.UserID, u.Banned, u.Title, u.Photo, u.Email, bu.*')
                 ->from('User u')
                 ->join(
                     'BlockUser bu',
