@@ -1,4 +1,16 @@
 <?php defined('APPLICATION') or die ?>
+<style>
+.BlockUserEdit {
+    top:20px;
+    padding-left: 20px;
+    vertical-align: middle;
+}
+
+.BlockUserEdit .ProfilePhoto {
+    width: 100px;
+    height: 100px;
+}
+</style>
 <div class="FormTitleWrapper">
     <h1 class="H"><?= htmlEsc($this->title()) ?></h1>
     <?= $this->Form->open(), $this->Form->errors() ?>

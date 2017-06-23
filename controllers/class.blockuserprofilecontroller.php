@@ -100,13 +100,6 @@ class BlockUserProfileController extends Gdn_Plugin {
      * @return [type]         [description]
      */
     public function controller_add($sender) {
-        $sender->setData(
-            'Title',
-            sprintf(
-                t('Block "%s"'),
-                $this->blockedUser->Name
-            )
-        );
         $this->controller_edit($sender);
     }
 
@@ -117,15 +110,8 @@ class BlockUserProfileController extends Gdn_Plugin {
      * @return [type]         [description]
      */
     public function controller_edit($sender, $args) {
-        if (!$sender->title()) {
-            $sender->setData(
-                'Title',
-                sprintf(
-                    t('Edit Blocked User "%s"'),
-                    $this->blockedUser->Name
-                )
-            );
-        }
+        $sender->setData('Title', t('Block User'));
+
         $sender->setData('BlockedUser', $this->blockedUser);
         // Set data from database, if available.
         $data = $this->blockUserModel->getBlocked(

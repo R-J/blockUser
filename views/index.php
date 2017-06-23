@@ -6,9 +6,23 @@ $tk = $this->data('TransientKey');
 ?>
 
 <style>
-    .DataTable {
-        table-layout: auto;
-    }
+.BlockUserTable {
+    table-layout: auto;
+}
+.BlockUserTable th {
+    text-align: left;
+}
+
+.DataTable.BlockUserTable td {
+    vertical-align: middle;
+}
+
+.BlockUserPhoto {
+    width: 40px;
+}
+.BlockUserActions > a {
+    margin: 5px;
+}
 </style>
 <div class="FormTitleWrapper BlockUserPreferences">
     <h1 class="H"><?= $this->title() ?></h1>
