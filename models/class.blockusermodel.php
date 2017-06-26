@@ -1,6 +1,8 @@
 <?php
 
 class BlockUserModel extends VanillaModel {
+    protected $staffUsers = [];
+
     public function __construct() {
         parent::__construct('BlockUser');
     }
@@ -13,7 +15,7 @@ class BlockUserModel extends VanillaModel {
      * @return array The blocked users ids.
      */
     public function getBlockedUsers($userID = 0) {
-// unused
+// unused?
 die;
         if (!$userID) {
             $userID = Gdn::session()->UserID;

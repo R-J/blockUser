@@ -19,13 +19,9 @@ include __DIR__.'/controllers/class.blockuserprofilecontroller.php';
 include __DIR__.'/controllers/class.blockuserplugincontroller.php';
 /**
  * todo:
- * UI: wrong avatar in index
- * UI: PopConfirm in /delete doesn't pause
  * UX: (Live-) reload
  * UX: remove "empty" records (nothing to ignore, no comment)
  * Bug: workaround for AddPeopleModule... (JS? Or module override?)
- * Feature: implement settings: ForceAnnouncements (CSS only!)
- * Feature: implement settings: ForceStaffMessages
  * 
  * Make 'blockUser.UseDropDownButton' option in settings and tell users that
  * having a prominent blocking option might look hostile...
@@ -117,6 +113,7 @@ class BlockUserPlugin extends Gdn_Plugin {
      */
     public function assetModel_styleCss_handler($sender) {
         $sender->addCssFile('blockuser.css', 'plugins/blockUser');
+saveToConfig('blockUser.ForceStaffMessages', true);
     }
 
     /**
@@ -128,12 +125,15 @@ class BlockUserPlugin extends Gdn_Plugin {
      * @return void.
      */
     public function base_BeforeDiscussionName_handler($sender, $args) {
+        // Stop if this is an announcement and ignoring announcements have been blocked.
+        if ($args['Discussion']->Announce && c('blockUser.ForceAnnouncements', true)) {
+            return;
+        }
         if (!$this->blockedUserIDs) {
             $this->blockUserModel = new BlockUserModel();
             $this->blockedUserInfo = $this->blockUserModel->getBlocked(Gdn::session()->UserID);
             $this->blockedUserIDs = array_column($this->blockedUserInfo, 'BlockedUserID');
         }
-
         $index = array_search(
             $args['Discussion']->InsertUserID,
             $this->blockedUserIDs
@@ -206,20 +206,31 @@ class BlockUserPlugin extends Gdn_Plugin {
      * @return void.
      */
     public function messagesController_beforeAddConversation_handler($sender, $args) {
+        // Check if staff cannot be ignored and user is staff.
+        if (
+            c('blockUser.ForceStaffMessages', true) &&
+            $this->isStaffUser(Gdn::session()->UserID)
+        ) {
+            return;
+        }
         $blockingUserInfo = (new BlockUserModel)->getBlocking(Gdn::session()->UserID);
         foreach ($blockingUserInfo as $user) {
-            if (
-                in_array($user['BlockingUserID'], $args['Recipients']) &&
-                $user['BlockPrivateMessages'] == true
-            ) {
-                $sender->Form->addError(
-                    sprintf(
-                        t('You cannot sent messages to %s. This user is ignoring you.'),
-                        $user['Name']
-                    ),
-                    'RecipientUserID'
-                );
+            // Stop here if blocking user doesn't opted to block PMs.
+            if ($user['BlockPrivateMessages'] == false) {
+                continue;
             }
+            // Stop if that user is not in the recipient list.
+            if (!in_array($user['BlockingUserID'], $args['Recipients'])) {
+                continue;
+            }
+            // Set error because user does't want to be addressed.
+            $sender->Form->addError(
+                sprintf(
+                    t('You cannot start a conversation with %s. This user is ignoring you.'),
+                    $user['Name']
+                ),
+                'RecipientUserID'
+            );
         }
     }
 
@@ -232,6 +243,14 @@ class BlockUserPlugin extends Gdn_Plugin {
      * @return void.
      */
     public function conversationMessageModel_beforeSaveValidation_handler($sender, $args) {
+        // Check if staff cannot be ignored and user is staff.
+        if (
+            c('blockUser.ForceStaffMessages', true) &&
+            $this->isStaffUser($args['FormPostValues']['RecipientUserID'])
+        ) {
+            return;
+        }
+
         $blockingUserInfo = (new BlockUserModel)->getBlocking(Gdn::session()->UserID);
         foreach ($blockingUserInfo as $user) {
             if (
@@ -274,5 +293,36 @@ class BlockUserPlugin extends Gdn_Plugin {
             // This prevents further processing.
             $args['Handled'] = true;
         }
+    }
+
+    public function isStaffUser($userID) {
+        $staffUserIDs = Gdn::cache()->get('BlockUser.StaffUserIDs');
+        if ($staffUserIDs === Gdn_Cache::CACHEOP_FAILURE) {
+            $roleData = Gdn::sql()
+                ->select('RoleID')
+                ->whereIn(
+                    'Type',
+                    [RoleModel::TYPE_ADMINISTRATOR, RoleModel::TYPE_MODERATOR]
+                )
+                ->from('Role')
+                ->get()
+                ->resultArray();
+            $staffRoleIDs = array_column($roleData, 'RoleID');
+            $staffUserIDs = [];
+            foreach ($staffRoleIDs as $staffRoleID) {
+                $staffUsers = Gdn::userModel()->getByRole(intval($staffRoleID));
+                foreach ($staffUsers as $user) {
+                    $staffUserIDs[]= $user->UserID;
+                }
+            }
+            Gdn::cache()->store(
+                'BlockUser.StaffUserIDs',
+                $staffUserIDs,
+                [
+                    Gdn_Cache::FEATURE_EXPIRY => 900 // 15 minutes.
+                ]
+            );
+        }
+        return in_array($userID, $staffUserIDs);
     }
 }
