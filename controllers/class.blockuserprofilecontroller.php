@@ -1,15 +1,22 @@
 <?php
 
 class BlockUserProfileController extends Gdn_Plugin {
-    /** @var array Blocked Users IDs */
-    protected $blockedUserIDs = [];
-
+    /** @var integer The ID of the blocking user */
     protected $blockingUserID;
 
+    /** @var Dataset The blocked user */
     protected $blockedUser;
 
+    /** @var BlockUserModel tThe model */
     public $blockUserModel;
 
+    /**
+     * Always add the token input js to the profile controller.
+     *
+     * @param ProfileController $sender Instance of the calling class.
+     *
+     * @return void.
+     */
     public function profileController_render_before($sender) {
         $sender->addJsFile('jquery.tokeninput.js');
     }
@@ -20,7 +27,7 @@ class BlockUserProfileController extends Gdn_Plugin {
      * Profile actions are typical CRUD actions for users which should
      * be blocked. This is a simple dispatcher.
      *
-     * @param PluginController $sender Instance of the calling class.
+     * @param ProfileController $sender Instance of the calling class.
      *
      * @return void.
      */
@@ -80,9 +87,11 @@ class BlockUserProfileController extends Gdn_Plugin {
 
     }
     /**
-     * [controller_index description]
-     * @param  [type] $sender [description]
-     * @return [type]         [description]
+     * Show list of all blocked users.
+     *
+     * @param ProfileController $sender Instance of the calling class.
+     *
+     * @return void.
      */
     public function controller_index($sender) {
         $sender->setData('Title', t('Block Users'));
@@ -94,20 +103,22 @@ class BlockUserProfileController extends Gdn_Plugin {
     }
 
     /**
-     * [controller_add description]
-     * @param  [type] $sender [description]
-     * @param  [type] $args   [description]
-     * @return [type]         [description]
+     * Add new user to the list of users to block.
+     *
+     * @param ProfileController $sender Instance of the calling class.
+     *
+     * @return void.
      */
     public function controller_add($sender) {
         $this->controller_edit($sender);
     }
 
     /**
-     * [controller_edit description]
-     * @param  [type] $sender [description]
-     * @param  [type] $args   [description]
-     * @return [type]         [description]
+     * Edit existing blocked user.
+     *
+     * @param ProfileController $sender Instance of the calling class.
+     *
+     * @return void.
      */
     public function controller_edit($sender, $args) {
         $sender->setData('Title', t('Block User'));
@@ -142,7 +153,14 @@ class BlockUserProfileController extends Gdn_Plugin {
         $sender->render('edit', '', 'plugins/blockUser');
     }
 
-    public function controller_delete($sender, $args) {
+    /**
+     * Delete a user from the blocked users list.
+     *
+     * @param ProfileController $sender Instance of the calling class.
+     *
+     * @return void.
+     */
+    public function controller_delete($sender) {
         $this->blockUserModel->delete(
             [
                 'BlockingUserID' => $this->blockingUserID,

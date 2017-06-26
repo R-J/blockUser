@@ -27,12 +27,6 @@ include __DIR__.'/controllers/class.blockuserplugincontroller.php';
  * having a prominent blocking option might look hostile...
  */
 class BlockUserPlugin extends Gdn_Plugin {
-    public $blockUserModel;
-
-    public $blockedUserInfo;
-
-    public $blockedUserIDs;
-
     /**
      * Init db changes. Set sane config values if needed.
      *
@@ -63,6 +57,7 @@ class BlockUserPlugin extends Gdn_Plugin {
             ->column('Comment', 'text', true)
             ->set();
     }
+
     /**
      * Simple settings page.
      *
@@ -100,7 +95,6 @@ class BlockUserPlugin extends Gdn_Plugin {
         $configurationModule->renderAll();
     }
 
-
     /**
      * Add css file.
      *
@@ -113,7 +107,18 @@ class BlockUserPlugin extends Gdn_Plugin {
      */
     public function assetModel_styleCss_handler($sender) {
         $sender->addCssFile('blockuser.css', 'plugins/blockUser');
-saveToConfig('blockUser.ForceStaffMessages', true);
+    }
+
+    /**
+     * "Ignore" a discussion by adding a css class.
+     *
+     * @param DiscussionController $sender Instance of the calling class.
+     * @param Mixed $args Instance of the calling class.
+     *
+     * @return void.
+     */
+    public function discussionController_beforeDiscussionDisplay_handler($sender, $args) {
+        $this->base_BeforeDiscussionName_handler($sender, $args);
     }
 
     /**
@@ -246,7 +251,7 @@ saveToConfig('blockUser.ForceStaffMessages', true);
         // Check if staff cannot be ignored and user is staff.
         if (
             c('blockUser.ForceStaffMessages', true) &&
-            $this->isStaffUser($args['FormPostValues']['RecipientUserID'])
+            $this->isStaffUser(Gdn::session()->UserID)
         ) {
             return;
         }
@@ -295,34 +300,23 @@ saveToConfig('blockUser.ForceStaffMessages', true);
         }
     }
 
-    public function isStaffUser($userID) {
-        $staffUserIDs = Gdn::cache()->get('BlockUser.StaffUserIDs');
-        if ($staffUserIDs === Gdn_Cache::CACHEOP_FAILURE) {
-            $roleData = Gdn::sql()
-                ->select('RoleID')
-                ->whereIn(
-                    'Type',
-                    [RoleModel::TYPE_ADMINISTRATOR, RoleModel::TYPE_MODERATOR]
-                )
-                ->from('Role')
-                ->get()
-                ->resultArray();
-            $staffRoleIDs = array_column($roleData, 'RoleID');
-            $staffUserIDs = [];
-            foreach ($staffRoleIDs as $staffRoleID) {
-                $staffUsers = Gdn::userModel()->getByRole(intval($staffRoleID));
-                foreach ($staffUsers as $user) {
-                    $staffUserIDs[]= $user->UserID;
-                }
+    /**
+     * Helper function to decide whether a user can be blocked.
+     *
+     * @param integer $userID The userID.
+     *
+     * @return boolean Whether the user is an admin or a mod.
+     */
+    private function isStaffUser($userID) {
+        $userRoles = Gdn::userModel()->getRoles(Gdn::session()->UserID);
+        foreach ($userRoles as $role) {
+            if (
+                $role['Type'] == RoleModel::TYPE_ADMINISTRATOR ||
+                $role['Type'] == RoleModel::TYPE_MODERATOR
+            ) {
+                return true;
             }
-            Gdn::cache()->store(
-                'BlockUser.StaffUserIDs',
-                $staffUserIDs,
-                [
-                    Gdn_Cache::FEATURE_EXPIRY => 900 // 15 minutes.
-                ]
-            );
         }
-        return in_array($userID, $staffUserIDs);
+        return false;
     }
 }

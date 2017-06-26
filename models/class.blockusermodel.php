@@ -1,54 +1,22 @@
 <?php
 
 class BlockUserModel extends VanillaModel {
-    protected $staffUsers = [];
-
+    /**
+     * Attach the "BlockUser" table to this model.
+     *
+     * @return  void.
+     */
     public function __construct() {
         parent::__construct('BlockUser');
     }
 
     /**
-     * Get all the users a user has blocked.
-     *
-     * @param integer $userID The blocking users ID.
-     *
-     * @return array The blocked users ids.
-     */
-    public function getBlockedUsers($userID = 0) {
-// unused?
-die;
-        if (!$userID) {
-            $userID = Gdn::session()->UserID;
-        }
-
-        $result = $this->getWhere(['BlockingUserID' => $userID])->resultArray();
-        return array_column($result, 'BlockedUserID');
-    }
-
-    public function getByBlockedUserName($blockedUserName, $blockingUserID = 0) {
-        if ($blockingUserID == 0) {
-            $blockingUserID = Gdn::session()->UserID;
-        }
-        $sql = Gdn::sql()
-            ->select('u.Name, bu.*')
-            ->from('User u')
-            ->join(
-                'BlockUser bu',
-                'u.UserID = bu.BlockedUserID',
-                'left outer'
-            )
-            ->where(['bu.BlockingUserID' => Gdn::session()->UserID])
-            ->where(['u.Name' => $blockedUserName]);
-
-        return $sql->get()->firstRow();
-    }
-
-    /**
      * Get either one or all blocked user information.
      *
-     * @param  [type] $blockingUserID [description]
-     * @param  [type] $blockedUserID  [description]
-     * @return dataset
+     * @param integer $blockingUserID The blocking users ID.
+     * @param integer $blockedUserID The blocked users ID.
+     *
+     * @return array Info about a blocked user.
      */
     public function getBlocked($blockingUserID, $blockedUserID = 0) {
         // Get info from cache if available.
@@ -91,21 +59,16 @@ die;
         return $blockedUserInfo[$index];
     }
 
-    public function getUserIDByName($userName) {
-        $user = Gdn::userModel()->getUserFromCache($userName, 'name');
-        if ($user) {
-            return $blockedUser['UserID'];
-        }
-
-        return Gdn::sql()
-            ->select('UserID')
-            ->from('User')
-            ->where(['Name' => $userName])
-            ->get()
-            ->firstRow()
-            ->UserID;
-    }
-
+    /**
+     * Helper function to find out if one user is blocking another.
+     *
+     * @param integer $blockingUserID The blockig users ID.
+     * @param integer $blockedUserID  The blocked users ID.
+     * @param array $blockedActions All actions from Table BlockUser headings.
+     * @param boolean $fullMatch Whether all blocked actions must apply.
+     *
+     * @return boolean Whether BlockingUser is blocking BlockedUser.
+     */
     public function isBlocking($blockingUserID, $blockedUserID, $blockedActions = [], $fullMatch = true) {
         $blockedUserInfo = $this->getBlocked($blockingUserID, $blockedUserID);
         if (!$blockedUserInfo) {
@@ -128,10 +91,11 @@ die;
     }
 
     /**
-     * [isBlocked description]
-     * @param  [type]  $blockedUserID [description]
+     * Get information about the blocking user.
      *
-     * @return array UserIDs of users blocking the input user id.
+     * @param integer $blockedUserID The blocked users ID.
+     *
+     * @return array Info about the blocing user.
      */
     public function getBlocking($blockedUserID) {
         return Gdn::sql()
