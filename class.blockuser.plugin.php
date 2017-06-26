@@ -27,6 +27,14 @@ include __DIR__.'/controllers/class.blockuserplugincontroller.php';
  * having a prominent blocking option might look hostile...
  */
 class BlockUserPlugin extends Gdn_Plugin {
+    public $blockedUserInfo = false;
+
+    public function __construct() {
+        if (!$this->blockedUserInfo) {
+            $this->blockedUserInfo = (new BlockUserModel())->getBlocked(Gdn::session()->UserID);
+        }
+    }
+
     /**
      * Init db changes. Set sane config values if needed.
      *
@@ -134,14 +142,10 @@ class BlockUserPlugin extends Gdn_Plugin {
         if ($args['Discussion']->Announce && c('blockUser.ForceAnnouncements', true)) {
             return;
         }
-        if (!$this->blockedUserIDs) {
-            $this->blockUserModel = new BlockUserModel();
-            $this->blockedUserInfo = $this->blockUserModel->getBlocked(Gdn::session()->UserID);
-            $this->blockedUserIDs = array_column($this->blockedUserInfo, 'BlockedUserID');
-        }
+
         $index = array_search(
             $args['Discussion']->InsertUserID,
-            $this->blockedUserIDs
+            array_column($this->blockedUserInfo, 'BlockedUserID')
         );
 
         if (!$index || !$this->blockedUserInfo[$index]['BlockDiscussions']) {
@@ -159,15 +163,9 @@ class BlockUserPlugin extends Gdn_Plugin {
      * @return void.
      */
     public function base_beforeCommentDisplay_handler($sender, $args) {
-        if (!$this->blockedUserIDs) {
-            $this->blockUserModel = new BlockUserModel();
-            $this->blockedUserInfo = $this->blockUserModel->getBlocked(Gdn::session()->UserID);
-            $this->blockedUserIDs = array_column($this->blockedUserInfo, 'BlockedUserID');
-        }
-
         $index = array_search(
             $args['Comment']->InsertUserID,
-            $this->blockedUserIDs
+            array_column($this->blockedUserInfo, 'BlockedUserID')
         );
 
         if (!$index || !$this->blockedUserInfo[$index]['BlockComments']) {
@@ -185,21 +183,40 @@ class BlockUserPlugin extends Gdn_Plugin {
      * @return void.
      */
     public function base_beforeActivity_handler($sender, $args) {
-        if (!$this->blockedUserIDs) {
-            $this->blockUserModel = new BlockUserModel();
-            $this->blockedUserInfo = $this->blockUserModel->getBlocked(Gdn::session()->UserID);
-            $this->blockedUserIDs = array_column($this->blockedUserInfo, 'BlockedUserID');
-        }
-
         $index = array_search(
             $args['Activity']->InsertUserID,
-            $this->blockedUserIDs
+            array_column($this->blockedUserInfo, 'BlockedUserID')
         );
 
         if (!$index || !$this->blockedUserInfo[$index]['BlockActivities']) {
             return;
         }
         $args['CssClass'] .= ' Ignored';
+    }
+
+    /**
+     * Block activity comments.
+     *
+     * Since there is a lack of an event which would allow changing the
+     * CssClass, an activity comment must be removed. This is slightly
+     * inconsisten with how the other posts are hidden.
+     *
+     * @param ActivityController $sender Instance of the calling class.
+     * @param mixed $args EventArguments.
+     *
+     * @return void.
+     */
+    public function activityController_afterMeta_handler($sender, $args) {
+        foreach ($args['Activity']->Comments as $key => $comment) {
+            $index = array_search(
+                $comment['InsertUserID'],
+                array_column($this->blockedUserInfo, 'BlockedUserID')
+            );
+            if (!$index || !$this->blockedUserInfo[$index]['BlockActivities']) {
+                continue;
+            }
+            unset($args['Activity']->Comments[$key]);
+        }
     }
 
     /**
