@@ -68,7 +68,6 @@ class BlockUserProfileController extends Gdn_Plugin {
         // Get info about the user.
         $this->blockedUser = Gdn::userModel()->getByUsername($blockedUserName);
 
-
         switch ($action) {
             case 'block':
             case 'add':
@@ -120,9 +119,8 @@ class BlockUserProfileController extends Gdn_Plugin {
      *
      * @return void.
      */
-    public function controller_edit($sender, $args) {
+    public function controller_edit($sender) {
         $sender->setData('Title', t('Block User'));
-
         $sender->setData('BlockedUser', $this->blockedUser);
         // Set data from database, if available.
         $data = $this->blockUserModel->getBlocked(
@@ -139,15 +137,28 @@ class BlockUserProfileController extends Gdn_Plugin {
 
         // Form submission handling.
         if ($sender->Form->authenticatedPostBack()) {
-            if($sender->Form->save() !== false) {
-                Gdn::cache()->remove('BlockUserInfo.'.$this->blockingUserID);
-
-// TODOs:
-// check if all fields have been cleared => delete record;
-// redirect to page
+            $formPostValues = $sender->Form->formValues();
+            // Check if form is empty and delete user.
+            if (
+                $formPostValues['Comment'] == '' &&
+                $formPostValues['BlockPrivateMessages'] == false &&
+                $formPostValues['BlockNotifications'] == false &&
+                $formPostValues['BlockDiscussions'] == false &&
+                $formPostValues['BlockComments'] == false &&
+                $formPostValues['BlockActivities'] == false &&
+                $formPostValues['DisallowWallPosts'] == false
+            ) {
+                $this->blockUserModel->delete(
+                    [
+                        'BlockingUserID' => $this->blockingUserID,
+                        'BlockedUserID' => $this->blockedUser->UserID
+                    ]
+                );
+            } elseif($sender->Form->save() !== false) {
                 $sender->informMessage(t("Your changes have been saved."));
-                // redirect('/profile/blockuser');
             }
+            Gdn::cache()->remove('BlockUserInfo.'.$this->blockingUserID);
+            // redirect('/profile/blockuser');
         }
 
         $sender->render('edit', '', 'plugins/blockUser');

@@ -53,7 +53,7 @@ class BlockUserModel extends VanillaModel {
             $blockedUserID,
             array_column($blockedUserInfo, 'BlockedUserID')
         );
-        if (!$index) {
+        if ($index === false) {
             return false;
         }
         return $blockedUserInfo[$index];

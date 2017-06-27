@@ -1,10 +1,18 @@
-.Item.Ignored,
-.Item.Read.Ignored:hover
+.Item.BlockedContent,
+.Item.Read.BlockedContent:hover
 {
     opacity: 0.3;
 }
 
-.Item.Activity.Ignored,
-.Ignored > .Item .Item-BodyWrap {
+.Item.Activity.BlockedContent,
+.BlockedContent .Item-BodyWrap,
+.CommentMeta,
+.DiscussionMeta {
     display: none;
+}
+
+
+.BlockedContent .ProfilePhotoMedium {
+    height: 20px;
+    width: 20px;
 }

@@ -16,24 +16,23 @@ $PluginInfo['blockUser'] = [
 ];
 
 include __DIR__.'/controllers/class.blockuserprofilecontroller.php';
-include __DIR__.'/controllers/class.blockuserplugincontroller.php';
 /**
  * todo:
  * UX: (Live-) reload
- * UX: remove "empty" records (nothing to ignore, no comment)
  * Bug: workaround for AddPeopleModule... (JS? Or module override?)
  * 
  * Make 'blockUser.UseDropDownButton' option in settings and tell users that
  * having a prominent blocking option might look hostile...
  */
 class BlockUserPlugin extends Gdn_Plugin {
-    public $blockedUserInfo = false;
-
-    public function __construct() {
-        if (!$this->blockedUserInfo) {
-            $this->blockedUserInfo = (new BlockUserModel())->getBlocked(Gdn::session()->UserID);
-        }
-    }
+    /** @var mixed Info about users blocked by session user */
+    public $blockedUserInfo = null;
+    /** @var mixed The IDs of all users that are blocked by session user */
+    public $blockedUserIDs = null;
+    /** @var mixed Info about users blocking session user */
+    public $blockingUserInfo = null;
+    /** @var mixed The IDs of all users who are blocking the session user */
+    public $blockingUserIDs = null;
 
     /**
      * Init db changes. Set sane config values if needed.
@@ -43,6 +42,7 @@ class BlockUserPlugin extends Gdn_Plugin {
     public function setup() {
         touchConfig('blockUser.ForceAnnouncements', true);
         touchConfig('blockUser.ForceStaffMessages', true);
+        saveToConfig('blockUser.ForceStaffMessages', false);
         $this->structure();
     }
 
@@ -121,12 +121,12 @@ class BlockUserPlugin extends Gdn_Plugin {
      * "Ignore" a discussion by adding a css class.
      *
      * @param DiscussionController $sender Instance of the calling class.
-     * @param Mixed $args Instance of the calling class.
+     * @param mixed $args Instance of the calling class.
      *
      * @return void.
      */
     public function discussionController_beforeDiscussionDisplay_handler($sender, $args) {
-        $this->base_BeforeDiscussionName_handler($sender, $args);
+        $this->base_beforeDiscussionName_handler($sender, $args);
     }
 
     /**
@@ -137,21 +137,15 @@ class BlockUserPlugin extends Gdn_Plugin {
      *
      * @return void.
      */
-    public function base_BeforeDiscussionName_handler($sender, $args) {
+    public function base_beforeDiscussionName_handler($sender, $args) {
         // Stop if this is an announcement and ignoring announcements have been blocked.
         if ($args['Discussion']->Announce && c('blockUser.ForceAnnouncements', true)) {
             return;
         }
-
-        $index = array_search(
-            $args['Discussion']->InsertUserID,
-            array_column($this->blockedUserInfo, 'BlockedUserID')
-        );
-
-        if (!$index || !$this->blockedUserInfo[$index]['BlockDiscussions']) {
+        if (!$this->isBlocking($args['Discussion']->InsertUserID, 'Discussions')) {
             return;
         }
-        $args['CssClass'] .= ' Ignored';
+        $args['CssClass'] .= ' BlockedContent';
     }
 
     /**
@@ -163,15 +157,10 @@ class BlockUserPlugin extends Gdn_Plugin {
      * @return void.
      */
     public function base_beforeCommentDisplay_handler($sender, $args) {
-        $index = array_search(
-            $args['Comment']->InsertUserID,
-            array_column($this->blockedUserInfo, 'BlockedUserID')
-        );
-
-        if (!$index || !$this->blockedUserInfo[$index]['BlockComments']) {
+        if (!$this->isBlocking($args['Comment']->InsertUserID, 'Comments')) {
             return;
         }
-        $args['CssClass'] .= ' Ignored';
+        $args['CssClass'] .= ' BlockedContent';
     }
 
     /**
@@ -183,15 +172,10 @@ class BlockUserPlugin extends Gdn_Plugin {
      * @return void.
      */
     public function base_beforeActivity_handler($sender, $args) {
-        $index = array_search(
-            $args['Activity']->InsertUserID,
-            array_column($this->blockedUserInfo, 'BlockedUserID')
-        );
-
-        if (!$index || !$this->blockedUserInfo[$index]['BlockActivities']) {
+        if (!$this->isBlocking($args['Activity']->InsertUserID, 'Activities')) {
             return;
         }
-        $args['CssClass'] .= ' Ignored';
+        $args['CssClass'] .= ' BlockedContent';
     }
 
     /**
@@ -208,14 +192,9 @@ class BlockUserPlugin extends Gdn_Plugin {
      */
     public function activityController_afterMeta_handler($sender, $args) {
         foreach ($args['Activity']->Comments as $key => $comment) {
-            $index = array_search(
-                $comment['InsertUserID'],
-                array_column($this->blockedUserInfo, 'BlockedUserID')
-            );
-            if (!$index || !$this->blockedUserInfo[$index]['BlockActivities']) {
-                continue;
+            if ($this->isBlocking($comment['InsertUserID'], 'Activities')) {
+                unset($args['Activity']->Comments[$key]);
             }
-            unset($args['Activity']->Comments[$key]);
         }
     }
 
@@ -235,24 +214,18 @@ class BlockUserPlugin extends Gdn_Plugin {
         ) {
             return;
         }
-        $blockingUserInfo = (new BlockUserModel)->getBlocking(Gdn::session()->UserID);
-        foreach ($blockingUserInfo as $user) {
-            // Stop here if blocking user doesn't opted to block PMs.
-            if ($user['BlockPrivateMessages'] == false) {
-                continue;
+        foreach ($args['Recipients'] as $recipientID) {
+            $blockingUser = $this->isBlocked($recipientID, 'PrivateMessages');
+            if ($blockingUser) {
+                // Set error because user does't want to be addressed.
+                $sender->Form->addError(
+                    sprintf(
+                        t('You cannot start a conversation with %s. This user is ignoring you.'),
+                        $blockingUser['Name']
+                    ),
+                    'RecipientUserID'
+                );
             }
-            // Stop if that user is not in the recipient list.
-            if (!in_array($user['BlockingUserID'], $args['Recipients'])) {
-                continue;
-            }
-            // Set error because user does't want to be addressed.
-            $sender->Form->addError(
-                sprintf(
-                    t('You cannot start a conversation with %s. This user is ignoring you.'),
-                    $user['Name']
-                ),
-                'RecipientUserID'
-            );
         }
     }
 
@@ -273,20 +246,14 @@ class BlockUserPlugin extends Gdn_Plugin {
             return;
         }
 
-        $blockingUserInfo = (new BlockUserModel)->getBlocking(Gdn::session()->UserID);
-        foreach ($blockingUserInfo as $user) {
-            if (
-                in_array(
-                    $user['BlockingUserID'],
-                    $args['FormPostValues']['RecipientUserID']
-                ) &&
-                $user['BlockPrivateMessages'] == true
-            ) {
+        foreach ($args['FormPostValues']['RecipientUserID'] as $recipientID) {
+            $blockingUser = $this->isBlocked($recipientID, 'PrivateMessages');
+            if ($blockingUser) {
                 $sender->Validation->addValidationResult(
                     'RecipientUserID',
                     sprintf(
                         t('You cannot sent messages to %s. This user is ignoring you.'),
-                        $user['Name']
+                        $blockingUser['Name']
                     )
                 );
             }
@@ -305,13 +272,7 @@ class BlockUserPlugin extends Gdn_Plugin {
      * @return void.
      */
     public function activityModel_beforeSave_handler($sender, $args) {
-        $result = (new BlockUserModel())->isBlocking(
-            $args['Activity']['NotifyUserID'],
-            $args['Activity']['ActivityUserID'],
-            ['BlockNotifications']
-        );
-
-        if($result == true) {
+        if ($this->isBlocking($args['Activity']['ActivityUserID'], 'Notifications')) {
             // This prevents further processing.
             $args['Handled'] = true;
         }
@@ -335,5 +296,51 @@ class BlockUserPlugin extends Gdn_Plugin {
             }
         }
         return false;
+    }
+
+    /**
+     * Function to find out if session user blocks user for a specific action.
+     *
+     * @param  [type]  $blockedUserID [description]
+     * @param  [type]  $action        [description]
+     * @return boolean                [description]
+     */
+    public function isBlocking($blockedUserID, $action) {
+        if ($this->blockedUserIDs === null) {
+            $this->blockedUserInfo = (new BlockUserModel())->getBlocked(Gdn::session()->UserID);
+            $this->blockedUserIDs = array_flip(
+                array_column(
+                    $this->blockedUserInfo,
+                    'BlockedUserID'
+                )
+            );
+        }
+        if (!isset($this->blockedUserInfo[$this->blockedUserIDs[$blockedUserID]])) {
+            return false;
+        }
+        return $this->blockedUserInfo[$this->blockedUserIDs[$blockedUserID]];
+    }
+
+    /**
+     * Check if session user is blocked by another user.
+     *
+     * @param  [type]  $blockedUserID [description]
+     * @param  [type]  $action        [description]
+     * @return boolean                [description]
+     */
+    public function isBlocked($blockingUserID, $action) {
+        if ($this->blockingUserIDs === null) {
+            $this->blockingUserInfo = (new BlockUserModel())->getBlocking(Gdn::session()->UserID);
+            $this->blockingUserIDs = array_flip(
+                array_column(
+                    $this->blockingUserInfo,
+                    'BlockingUserID'
+                )
+            );
+        }
+        if (!isset($this->blockingUserInfo[$this->blockingUserIDs[$blockingUserID]])) {
+            return false;
+        }
+        return $this->blockingUserInfo[$this->blockingUserIDs[$blockingUserID]];
     }
 }
